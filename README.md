@@ -1,5 +1,5 @@
 # sdsdata
-Fetch data from Sigma bicycle computers using the Sigma Docking Station USB cradle, eventually zeroing counters:
+Fetch data from Sigma bicycle computers using the Sigma Docking Station USB cradle, optionally zeroing counters:
 
 * works on Linux (should work on every platform featuring Rust and Libusb)
 * pipeable to other services (messages to stderr, data to stdout)

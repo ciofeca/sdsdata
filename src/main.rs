@@ -107,12 +107,14 @@ fn main()                     // setup flags and run
     }
 
     if flag.run {
-        run(&mut flag)
+        run(&mut flag);
+        if flag.run { std::process::exit(1) }  // incomplete run? error 1
     }
     else
     {
         msg!("{}: error: optional command-line arguments are: \
-              --clear --dump --miles --no-ts --no-zeros --raw --wait-remove", args[0])
+              --clear --dump --miles --no-ts --no-zeros --raw --wait-remove", args[0]);
+        std::process::exit(2)
     }
 }
 
@@ -319,6 +321,8 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
 
         std::thread::sleep(shortimeout)
     }
+
+    flag.run = false   // completed: did everything
 }
 
 
