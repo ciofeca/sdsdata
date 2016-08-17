@@ -1,0 +1,6 @@
+# Sigma Data Station (1d9d:1011)
+#
+# placing this file in /etc/udev/rules.d
+# allows users of group "usb" to access the
+# Data Station via libusb without root privileges:
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1d9d", ATTRS{idProduct}=="1011", GROUP="usb", MODE="0660"

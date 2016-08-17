@@ -1,0 +1,10 @@
+[package]
+name = "sdsdata"
+version = "1.0.0"
+authors = ["<alfonso.martone@gmail.com>"]
+description = "fetching data from the Sigma Docking Station TL2012 (CR2032/CR2450)"
+license = "MIT"
+homepage = "https://particolarmente-urgentissimo.blogspot.com"
+
+[dependencies]
+libusb = "0.2.2"
