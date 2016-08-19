@@ -28,7 +28,7 @@ Now you can use it using `sudo ~/bin/sdsdata`
 * then copy the `50-sdsdata.rules` in the */etc/udev/rules.d*
 * execute `sudo udevadm control --reload-rules`
 
-From next login `~/bin/sdsdata` won't need {sudo} anymore.
+From next login `~/bin/sdsdata` won't need *sudo* anymore.
 
 ### running it
 * *sdsdata* will poll the cradle until some unit is inserted on one of its slots
