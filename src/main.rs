@@ -27,7 +27,7 @@ use std::time::Duration;
 macro_rules! msg(             // messages on stderr
     ($($arg:tt)*) => { {
         let _ = writeln!(&mut stderr(), "# {}", format_args!($($arg)*));
-    } } 
+    } }
 );
 
 macro_rules! hexdump(         // hex dump on stderr
@@ -57,7 +57,7 @@ macro_rules! usbtry(          // return if something went wrong on libusb functi
     ($call:expr) => {
         match $call {
             Ok(_) => (),
-            Err(e) => { msg!("libusb error: {}", e); return } 
+            Err(e) => { msg!("libusb error: {}", e); return }
         }
     }
 );
@@ -79,8 +79,7 @@ struct Flags {
 
 // --- functions
 
-fn main()                     // setup flags and run
-{
+fn main() {                   // setup flags and run
     let mut flag = Flags {
         clear:  false,
         dump:   false,
@@ -119,14 +118,11 @@ fn main()                     // setup flags and run
 }
 
 
-fn run(flag: &mut Flags)      // usb context is only valid here and below
-{
+fn run(flag: &mut Flags) {    // usb context is only valid here and below
     match libusb::Context::new() {
         Ok(mut context) => {
             match open_device(&mut context) {
-                Some((mut dev, desc, mut handle)) => {
-                    use_device(flag, &mut dev, &desc, &mut handle)
-                },
+                Some((mut dev, desc, mut handle)) => use_device(flag, &mut dev, &desc, &mut handle),
                 None => {
                     msg!("could not get device {:04x}:{:04x} - \
                           is it connected? do you need higher privileges?", SDC_VENDOR, SDC_PRODUCT)
@@ -138,8 +134,9 @@ fn run(flag: &mut Flags)      // usb context is only valid here and below
 }
 
 
-fn open_device(context: &mut libusb::Context) -> Option<(libusb::Device, libusb::DeviceDescriptor, libusb::DeviceHandle)> {
-    //context.set_log_level(libusb::LogLevel::Info);
+fn open_device(context: &mut libusb::Context)
+               -> Option<(libusb::Device, libusb::DeviceDescriptor, libusb::DeviceHandle)> {
+    // context.set_log_level(libusb::LogLevel::Info);
 
     let devices = match context.devices() {
         Ok(d) => d,
@@ -165,7 +162,10 @@ fn open_device(context: &mut libusb::Context) -> Option<(libusb::Device, libusb:
 }
 
 
-fn use_device(flag: &mut Flags, device: &mut libusb::Device, device_desc: &libusb::DeviceDescriptor, handle: &mut libusb::DeviceHandle) {
+fn use_device(flag: &mut Flags,
+              device: &mut libusb::Device,
+              device_desc: &libusb::DeviceDescriptor,
+              handle: &mut libusb::DeviceHandle) {
     for n in 0..device_desc.num_configurations() {
         let config_desc = match device.config_descriptor(n) {
             Ok(c) => c,
@@ -175,13 +175,14 @@ fn use_device(flag: &mut Flags, device: &mut libusb::Device, device_desc: &libus
         for interface in config_desc.interfaces() {
             for interface_desc in interface.descriptors() {
                 for endpoint_desc in interface_desc.endpoint_descriptors() {
-                    if endpoint_desc.direction() == libusb::Direction::In && endpoint_desc.transfer_type() == libusb::TransferType::Bulk {
+                    if endpoint_desc.direction() == libusb::Direction::In &&
+                       endpoint_desc.transfer_type() == libusb::TransferType::Bulk {
                         let config  = config_desc.number();
                         let intface = interface_desc.interface_number();
                         let setting = interface_desc.setting_number();
 
                         match handle.kernel_driver_active(intface) {
-                            Ok(true) => { handle.detach_kernel_driver(intface).ok() },
+                            Ok(true) => handle.detach_kernel_driver(intface).ok(),
                             _ => None
                         };
 
@@ -202,8 +203,12 @@ fn use_device(flag: &mut Flags, device: &mut libusb::Device, device_desc: &libus
 
 // real meat comes here
 fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
-    let     send = libusb::request_type(libusb::Direction::Out, libusb::RequestType::Standard, libusb::Recipient::Endpoint);
-    let     recv = libusb::request_type(libusb::Direction::In, libusb::RequestType::Standard, libusb::Recipient::Interface);
+    let     send = libusb::request_type(libusb::Direction::Out,
+                                        libusb::RequestType::Standard,
+                                        libusb::Recipient::Endpoint);
+    let     recv = libusb::request_type(libusb::Direction::In,
+                                        libusb::RequestType::Standard,
+                                        libusb::Recipient::Interface);
 
     let     shortimeout  = Duration::from_millis(TIMEOUT_SHORT);
     let     writetimeout = Duration::from_millis(TIMEOUT_MSEC);
@@ -218,20 +223,22 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
     // a quick polling to check if the cradle channel has to be reset
     outbuf[0] = 0xf4;      // poll command, expecting a single byte 0/1
     match handle.write_bulk(send, &outbuf, shortimeout) {
-        Ok(_) => match handle.read_bulk(recv, &mut buf[..], shortimeout) {
-            Ok(n) => {
-                if n != 1 {
-                    msg!("bulk transfer error: expected 1 byte, got {}", n);
+        Ok(_) => {
+            match handle.read_bulk(recv, &mut buf[..], shortimeout) {
+                Ok(n) => {
+                    if n != 1 {
+                        msg!("bulk transfer error: expected 1 byte, got {}", n);
+                        return
+                    }
+                },
+                Err(libusb::Error::Timeout) => {
+                    msg!("resetting usb channel");
+                    usbtry!(handle.reset())
+                },
+                Err(e) => {
+                    msg!("libusb bulk read error: {}", e);
                     return
                 }
-            },
-            Err(libusb::Error::Timeout) => {
-                msg!("resetting usb channel");
-                usbtry!(handle.reset())
-            },
-            Err(e) => {
-                msg!("libusb bulk read error: {}", e);
-                return
             }
         },
         Err(libusb::Error::Timeout) => {
@@ -250,7 +257,7 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
         usbtry!(handle.write_bulk(send, &outbuf, shortimeout));
         usbytes!(1, handle.read_bulk(recv, &mut buf[..], shortimeout));
 
-        if buf[0]==1 {
+        if buf[0] == 1 {
             msg!("unit found in the cradle");
             break
         }
@@ -271,15 +278,18 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
 
     // this release expects that buf bytes from 7 to 10 are always zero
     for i in 7..11 {
-        if buf[i]>0 {
+        if buf[i] > 0 {
             msg!("debug: unexpected values in bytes 7 to 10");
             break
         }
     }
 
     match buf[1] {
-        BC1612 => { msg!("unit identified as a BC 16.12 type {} version {}", buf[0], buf[6]) },
-        0      => { msg!("unknown unit in the cradle (0), exiting..."); return },
+        BC1612 => msg!("unit identified as a BC 16.12 type {} version {}", buf[0], buf[6]),
+        0      => {
+            msg!("unknown unit in the cradle (0), exiting...");
+            return
+        },
         _      => { msg!("warning: unknown unit in the cradle (0x{:02x})", buf[1]) }
     }
 
@@ -294,7 +304,7 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
     if flag.miles { decode27(buf, flag, "mi", "mph", 1.609344) }
     else          { decode27(buf, flag, "km", "km/hr", 1.0)    }
 
-    if flag.clear {     
+    if flag.clear {
         // reset unit's counters: a two bytes command, expecting a zero byte
         usbtry!(handle.write_bulk(send, &resetbuf, writetimeout));
         usbytes!(1, handle.read_bulk(recv, &mut buf[..], readtimeout));
@@ -315,9 +325,12 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
         usbtry!(handle.write_bulk(send, &outbuf, shortimeout));
         usbytes!(1, handle.read_bulk(recv, &mut buf[..], shortimeout));
 
-        if ! flag.remove { break }
+        if !flag.remove { break }
 
-        if buf[0]==0 { msg!("unit removed, exiting..."); break }
+        if buf[0] == 0 {
+            msg!("unit removed, exiting...");
+            break
+        }
 
         std::thread::sleep(shortimeout)
     }
@@ -328,7 +341,7 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
 
 fn decode27(buf: [u8; 32], flag: &mut Flags, udist: &str, uspeed: &str, conv: f64)
 {
-    if buf[0]>0 { msg!("funny: the unit reports you're still pedaling") }
+    if buf[0] > 0 { msg!("funny: the unit reports you're still pedaling") }
 
     let mut   dist = (buf[1] as u32)*65536 + (buf[2] as u32)*256 + (buf[3] as u32);
     let    seconds = (buf[4] as u32)*65536 + (buf[5] as u32)*256 + (buf[6] as u32);
@@ -337,14 +350,14 @@ fn decode27(buf: [u8; 32], flag: &mut Flags, udist: &str, uspeed: &str, conv: f6
     let    cadence = buf[11];             // only set if cadence sensor was installed
 
     // this release expects that buf bytes 12 and 13 are always zero
-    if buf[12]!=0 || buf[13]!=0 { msg!("debug: unexpected values in bytes 12 and 13") }
+    if buf[12] != 0 || buf[13] != 0 { msg!("debug: unexpected values in bytes 12 and 13") }
 
     let mut tsdist = (buf[14] as u32)*65536 + (buf[15] as u32)*256 + (buf[16] as u32);
     let   tseconds = (buf[17] as u32)*65536 + (buf[18] as u32)*256 + (buf[19] as u32);
 
     // this release expects that buf bytes from 20 to 26 are always zero
     for i in 20..27 {
-        if buf[i]>0 {
+        if buf[i] > 0 {
             msg!("debug: unexpected values in bytes 20 to 26");
             break
         }
@@ -356,52 +369,52 @@ fn decode27(buf: [u8; 32], flag: &mut Flags, udist: &str, uspeed: &str, conv: f6
     let     tsmins = tseconds % 3600;
 
     if conv != 1.0 {
-        dist   = ((dist   as f64)/conv) as u32;
-        meansp = ((meansp as f64)/conv) as u16;
-        maxsp  = ((maxsp  as f64)/conv) as u16;
-        tsdist = ((tsdist as f64)/conv) as u32
+        dist   = ((dist   as f64) / conv) as u32;
+        meansp = ((meansp as f64) / conv) as u16;
+        maxsp  = ((maxsp  as f64) / conv) as u16;
+        tsdist = ((tsdist as f64) / conv) as u32
     }
 
-    if dist>0 || flag.zeros {
+    if dist > 0 || flag.zeros {
         if flag.raw { print!("{}", dist) }
-        else        { println!("distance: {}.{:02} {}", dist/1000, (dist%1000)/10, udist) }
+        else        { println!("distance: {}.{:02} {}", dist / 1000, (dist % 1000) / 10, udist) }
     }
     if flag.raw { print!(",") }
 
-    if seconds>0 || flag.zeros {
+    if seconds > 0 || flag.zeros {
         if flag.raw { print!("{}", seconds) }
-        else        { println!("time: {}:{:02}:{:02}", hours, minutes/60, minutes%60) }
+        else        { println!("time: {}:{:02}:{:02}", hours, minutes / 60, minutes % 60) }
     }
     if flag.raw { print!(",") }
 
-    if meansp>0 || flag.zeros {
-        if flag.raw { print!("{}.{:02}", meansp/100, meansp%100) }
-        else        { println!("meanspeed: {}.{:02} {}", meansp/100, meansp%100, uspeed) }
+    if meansp > 0 || flag.zeros {
+        if flag.raw { print!("{}.{:02}", meansp / 100, meansp % 100) }
+        else        { println!("meanspeed: {}.{:02} {}", meansp / 100, meansp % 100, uspeed) }
     }
     if flag.raw { print!(",") }
 
-    if maxsp>0 || flag.zeros {
-        if flag.raw { print!("{}.{:02}", maxsp/100, maxsp%100) }
-        else        { println!("maxspeed: {}.{:02} {}", maxsp/100, maxsp%100, uspeed) }
+    if maxsp > 0 || flag.zeros {
+        if flag.raw { print!("{}.{:02}", maxsp / 100, maxsp % 100) }
+        else        { println!("maxspeed: {}.{:02} {}", maxsp / 100, maxsp % 100, uspeed) }
     }
     if flag.raw { print!(",") }
   
-    if cadence>0 || flag.zeros {
+    if cadence > 0 || flag.zeros {
         if flag.raw { print!("{}", cadence) }
         else        { println!("cadence: {}/min", cadence) }
     }
     if flag.raw { print!(",") }
 
     if flag.ts {
-        if tsdist>0 || flag.zeros {
+        if tsdist > 0 || flag.zeros {
             if flag.raw { print!("{}", tsdist) }
-            else        { println!("ts_dist: {}.{:02} {}", tsdist/1000, (tsdist%1000)/10, udist) }
+            else        { println!("ts_dist: {}.{:02} {}", tsdist / 1000, (tsdist % 1000) / 10, udist) }
         }
         if flag.raw { print!(",") }
 
-        if tseconds>0 || flag.zeros {
+        if tseconds > 0 || flag.zeros {
             if flag.raw { print!("{}", tseconds) }
-            else        { println!("ts_time: {}:{:02}:{:02}", tshours, tsmins/60, tsmins%60) }
+            else        { println!("ts_time: {}:{:02}:{:02}", tshours, tsmins / 60, tsmins % 60) }
         }
     }
     if flag.raw { println!("") }
