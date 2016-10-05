@@ -203,20 +203,20 @@ fn use_device(flag: &mut Flags,
 
 // real meat comes here
 fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
-    let     send = libusb::request_type(libusb::Direction::Out,
-                                        libusb::RequestType::Standard,
-                                        libusb::Recipient::Endpoint);
-    let     recv = libusb::request_type(libusb::Direction::In,
-                                        libusb::RequestType::Standard,
-                                        libusb::Recipient::Interface);
+    let send = libusb::request_type(libusb::Direction::Out,
+                                    libusb::RequestType::Standard,
+                                    libusb::Recipient::Endpoint);
+    let recv = libusb::request_type(libusb::Direction::In,
+                                    libusb::RequestType::Standard,
+                                    libusb::Recipient::Interface);
 
-    let     shortimeout  = Duration::from_millis(TIMEOUT_SHORT);
-    let     writetimeout = Duration::from_millis(TIMEOUT_MSEC);
-    let     readtimeout  = Duration::from_millis(TIMEOUT_MSEC*2);
+    let shortimeout  = Duration::from_millis(TIMEOUT_SHORT);
+    let writetimeout = Duration::from_millis(TIMEOUT_MSEC);
+    let readtimeout  = Duration::from_millis(TIMEOUT_MSEC*2);
 
-    let     resetbuf: [ u8; 2 ] = [ 0xf0, 0x02 ];  // reset counters command
-    let mut outbuf:   [ u8; 1 ] = [ 0 ];           // single-byte commands
-    let mut buf:     [ u8; 32 ] = [ 0; 32 ];       // cradle replies
+    let resetbuf:   [ u8; 2 ] = [ 0xf0, 0x02 ];  // reset counters command
+    let mut outbuf: [ u8; 1 ] = [ 0 ];           // single-byte commands
+    let mut buf:   [ u8; 32 ] = [ 0; 32 ];       // cradle replies
 
     let mut notyet = true;
 
@@ -285,12 +285,16 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
     }
 
     match buf[1] {
-        BC1612 => msg!("unit identified as a BC 16.12 type {} version {}", buf[0], buf[6]),
-        0      => {
+        BC1612 => {
+            msg!("unit identified as a BC 16.12 type {} version {}", buf[0], buf[6])
+        },
+        0 => {
             msg!("unknown unit in the cradle (0), exiting...");
             return
         },
-        _      => { msg!("warning: unknown unit in the cradle (0x{:02x})", buf[1]) }
+        _ => {
+            msg!("warning: unknown unit in the cradle (0x{:02x})", buf[1])
+        }
     }
 
     msg!("unit serial number: {}{}{}{}", buf[2], buf[3], buf[4], buf[5]);
@@ -341,7 +345,9 @@ fn mappuoglio(flag: &mut Flags, handle: &mut libusb::DeviceHandle) {
 
 fn decode27(buf: [u8; 32], flag: &mut Flags, udist: &str, uspeed: &str, conv: f64)
 {
-    if buf[0] > 0 { msg!("funny: the unit reports you're still pedaling") }
+    if buf[0] > 0 {
+        msg!("{} records in the unit; reading the oldest one", buf[0] as usize + 1)
+    }
 
     let mut   dist = (buf[1] as u32)*65536 + (buf[2] as u32)*256 + (buf[3] as u32);
     let    seconds = (buf[4] as u32)*65536 + (buf[5] as u32)*256 + (buf[6] as u32);
